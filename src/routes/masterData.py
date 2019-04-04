@@ -3,6 +3,8 @@ from flask import Flask, request, json, jsonify, make_response
 import os
 
 from ..utils.models import db, Posisi, Role, Keputusan
+from ..utils.authorisation import verifyLogin
+
 
 from . import router
 
@@ -54,6 +56,8 @@ def addRole():
 
 
 @router.route('/master/role/getAll', methods=['GET'])
+@verifyLogin
+
 def getAllRole():
     response = {
         "error" : True,
@@ -84,6 +88,8 @@ def getAllRole():
 # GET ROLE PER ID POSISI
 #################################################################################################
 @router.route('/master/role/getRoleByPosisiId/<posisi_id>', methods=['GET'])
+@verifyLogin
+
 def getRoleByPosisiId(posisi_id):
     response = {
         "error" : True,
@@ -113,6 +119,8 @@ def getRoleByPosisiId(posisi_id):
 # GET ROLE MANAJER PER ID POSISI
 #################################################################################################
 @router.route('/master/role/getRoleManajerByPosisiId/<posisi_id>', methods=['GET'])
+@verifyLogin
+
 def getRoleManajerByPosisiId(posisi_id):
     response = {
         "error" : True,
@@ -140,6 +148,8 @@ def getRoleManajerByPosisiId(posisi_id):
 # ADD POSISI
 #####################################################################################################
 @router.route('/master/posisi/add', methods=['POST'])
+@verifyLogin
+
 def addPosisi():
     body = request.json
 
@@ -183,6 +193,8 @@ def addPosisi():
 # GET POSISI
 #################################################################################################
 @router.route('/master/posisi/getAll', methods=['GET'])
+@verifyLogin
+
 def getAllPosisi():
     response = {
         "error" : True,
@@ -213,6 +225,8 @@ def getAllPosisi():
 # GET POSISI PER ID POSISI
 #################################################################################################
 @router.route('/master/posisi/getPosisiById/<posisi_id>', methods=['GET'])
+@verifyLogin
+
 def getPosisiById(posisi_id):
     response = {
         "error" : True,
@@ -241,6 +255,8 @@ def getPosisiById(posisi_id):
 # GET KEPUTUSAN
 #################################################################################################
 @router.route('/master/keputusan/getAll', methods=['GET'])
+@verifyLogin
+
 def getAllKeputusan():
     response = {
         "error" : True,

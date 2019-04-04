@@ -4,6 +4,8 @@ import os
 
 from ..utils.crypt import encrypt, decrypt
 from ..utils.authorisation import generateToken
+from ..utils.authorisation import verifyLogin
+
 
 from ..utils.models import db, Pegawai
 
@@ -120,6 +122,7 @@ def loginUser():
 # GET USER PER ID
 #####################################################################################################
 @router.route('/user/getUser/<npk>')
+@verifyLogin
 def getUserById(npk):
     response = {
         "error" : True,
@@ -153,6 +156,7 @@ def getUserById(npk):
 # GET DETAIL POSISI PER PEGAWAI NPK
 #####################################################################################################
 @router.route('/user/getDetailedPosisi/<npk>')
+@verifyLogin
 def getDetailedPosisiById(npk):
     response = {
         "error" : True,
@@ -185,6 +189,7 @@ def getDetailedPosisiById(npk):
 # GET ALL USERS
 #####################################################################################################
 @router.route('/user/getAll')
+@verifyLogin
 def getAllUsers():
     response = {
         "error" : True,

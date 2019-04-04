@@ -4,6 +4,9 @@ import os, requests
 
 from ..utils.models import *
 
+from ..utils.authorisation import verifyLogin
+
+
 from . import router
 
 from flask_sqlalchemy import SQLAlchemy
@@ -123,6 +126,8 @@ def submitRecordDB(pegawaiRequester,body):
 # SUBMIT REQUEST (CREATE RECORD + SUBMIT RECORD)
 #####################################################################################################
 @router.route('/request/submit', methods = ['POST'])
+@verifyLogin
+
 def submitRequest():
     body = request.json
 
@@ -179,6 +184,8 @@ def getTaskFromNF(tokenNFPegawai):
 # GET REQUEST PER ID LOGIN (GET TASK) NANTI KEMBANGIN JADI PER USER TOKENNF STLH DAPET NPK
 #################################################################################################
 @router.route('/task/getAll/<npk>', methods=['GET'])
+@verifyLogin
+
 def getAllTasksById(npk):
     response = {
         "error" : True,
@@ -207,6 +214,8 @@ def getAllTasksById(npk):
 # GET REQUEST PER REQUEST ID DARI LIST TASK (YANG UDAH PER TOKEN DARI NF-NYA) ini mah manggil dari local db aja
 #################################################################################################
 @router.route('/task/getTaskPerRecordId/<record_id>', methods=['GET'])
+@verifyLogin
+
 def getTaskPerRecordId(record_id):
     response = {
         "error" : True,
@@ -323,6 +332,8 @@ def submitTaskDB(body):
 # SUBMIT TASK 
 #####################################################################################################
 @router.route('/task/submit', methods = ['POST'])
+@verifyLogin
+
 def submitTask():
     body = request.json
 
@@ -359,6 +370,8 @@ def submitTask():
 # SUBMIT TASK REVISE
 #####################################################################################################
 @router.route('/task/submitrevise', methods = ['POST'])
+@verifyLogin
+
 def submitTaskRevise():
     body = request.json
 
