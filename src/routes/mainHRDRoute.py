@@ -115,7 +115,9 @@ def submitRecordDB(pegawaiRequester,body):
         request_id = requestDB.request_id,
         response = body["action"],
         started_at = requestDB.created_at,
-        completed_at = None)
+        completed_at = None,
+        submitted_by_id = body["user_login"]["npk"],
+        record_id = requestDB.record_id)
     db.session.add(historyDB)
     db.session.commit()
 
@@ -310,7 +312,6 @@ def submitTaskDB(body):
         role_id_awal = body["data_pegawai_requested"]["role_id_awal"],
         role_id_tujuan = body["data_pegawai_requested"]["role_id_tujuan"])
     db.session.add(requestDB)
-    print("ADDED")
     db.session.commit()
 
     historyDB = History(
@@ -320,9 +321,10 @@ def submitTaskDB(body):
         request_id = requestDB.request_id,
         response = body["action"],
         started_at = requestDB.created_at,
-        completed_at = None)
+        completed_at = None,
+        submitted_by_id = body["user_login"]["npk"],
+        record_id = requestDB.record_id)
     db.session.add(historyDB)
-    print("ADDED History")
     db.session.commit()
 
     return requestDB
@@ -350,11 +352,34 @@ def submitTask():
 
         submittedTask = submitTaskNF(body["task_id"],body,tokenNFLogin,body["action"])
 
-        submittedTaskDB = submitTaskDB(body)                
+        submittedTaskDB = submitTaskDB(body)    
 
-        response["message"] =  "Task submitted."
+        respTEST = {
+            "submittedTaskDB" : submittedTaskDB.serialise(),
+            "responNF" : submittedTask
+        }            
+
+        recordStageView = getRecordStageView(submittedTaskDB.record_id,tokenNFLogin)
+        print("CEK 1",recordStageView['data'][-1]['type'])
+        isRecordComplete = isRecordCompleted(recordStageView,body["data_pegawai_requested"], tokenNFLogin)
+
+        recordStageViewAdmin = getRecordStageViewAdmin(submittedTaskDB.record_id)
+        print("CEK 2",recordStageViewAdmin['data'][-1]['type'])
+        isRecordCompleteAdmin = isRecordCompleted(recordStageViewAdmin,body["data_pegawai_requested"], tokenNFLogin)
+
+        
+        recordStageViewAdmin2 = getRecordStageViewAdmin(submittedTaskDB.record_id)
+        print("CEK 3",recordStageViewAdmin2['data'][-1]['type'])
+        isRecordCompleteAdmin2 = isRecordCompleted(recordStageViewAdmin2,body["data_pegawai_requested"], tokenNFLogin)
+
+        additionalMessage = ""
+        if (isRecordCompleteAdmin2["relocated"] == True) :
+            relocatePegawaiWhenRecordIsCompleted(body["data_pegawai_requested"])
+            additionalMessage = "Pegawai is relocated"
+
+        response["message"] =  "Task submitted.   " + additionalMessage
         response["error"] = False
-        response["data"] = submittedTaskDB.serialise()
+        response["data"] = respTEST
     except Exception as e:
         response["message"] = str(e)
     finally:
@@ -405,27 +430,95 @@ def submitTaskRevise():
 #################################################################################################
 # GET ALL HISTORY
 #################################################################################################
-'''
 @router.route('/history/getAll', methods=['GET'])
+@verifyLogin
 def getAllHistory():
     response = {
         "error" : True,
         "message" : "",
         "data" : {}
     }
-    
-    history = db.session.query(History).order_by(History.created_at).all()
-        
+            
     try:
-        listTask = getTaskFromNF(tokenNFPegawai)
-        response["message"] = "Task(s) found"
+        historyEnabled = db.session.query(History).filter_by(status_enabled = True).order_by(History.started_at).all()
+        
+        data = ([e.serialise() for e in historyEnabled])
+        historyEnabledCount  = len(data)
+        response["message"] = "History(s) found : " + str(historyEnabledCount)
         response["error"] = False
-        response["data"] = listTask
+        response["data"] = data
     except Exception as e:
         response["message"] = str(e)
     finally:
-        # db.session.close()
+        db.session.close()
         print("tes ok")
     
     return jsonify(response)
-'''
+
+
+def getRecordStageViewAdmin(record_id):
+    print("masuk record stage view admin")
+    urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
+    userTokenNF = os.getenv("NF_user_token")
+    # userTokenNF = tokenNFLogin
+
+    recordStageView = requests.get(urlSubmitRecordNF + record_id +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
+    print("mau keluar record stage view admin")
+    return json.loads(recordStageView.text)
+
+
+def getRecordStageView(record_id, tokenNFLogin):
+    urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
+    # userTokenNF = os.getenv("NF_user_token")
+    userTokenNF = tokenNFLogin
+
+    recordStageView = requests.get(urlSubmitRecordNF + record_id +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
+
+    return json.loads(recordStageView.text)
+
+def isRecordCompleted(recordStageView, pegawaiRequested, tokenNFLogin):
+    # print(recordStageView, pegawaiRequested)
+    print(recordStageView['data'][-1]['type'])
+    print(pegawaiRequested['npk'])
+
+    print("func isrecordcomplete called")
+    response = {
+        "message" : "",
+        "relocated" : False
+    }
+
+    #double check
+    # doubleCheckRecordStageView = getRecordStageView(recordStageView['data'][-1]['record_id'], tokenNFLogin)
+    # print("HASIL DOUBLE CHECK", doubleCheckRecordStageView['data'][-1]['type'] )
+    # tripleCheckRecordStageView = getRecordStageView(recordStageView['data'][-1]['record_id'], tokenNFLogin)
+
+    # print("HASIL TRIPLE CHECK", tripleCheckRecordStageView['data'][-1]['type'] )
+
+    if (recordStageView['data'][-1]['type'] == "record:state:completed"):
+        print("MASUK")
+        # relocatePegawaiWhenRecordIsCompleted(pegawaiRequested)
+        response["message"] = "record completed, pegawai relocated"
+        response["relocated"] = True
+        print("relocated")
+    else :
+        response["message"] = "process is still on going"
+
+    return jsonify(response)
+
+
+def relocatePegawaiWhenRecordIsCompleted(pegawaiRequested):
+    print(pegawaiRequested['npk'])
+    print("func relocatepegawaiwhenrecordiscompleted called")
+
+    try:
+        Pegawai.query.filter_by(npk = pegawaiRequested['npk']).update(dict(posisi_id=pegawaiRequested['posisi_id_tujuan']))
+        message = "pegawai realocated"
+
+        db.session.commit()
+    
+    except Exception as e:
+        return str(e)
+    finally:
+        db.session.close()
+
+    return message

@@ -327,8 +327,11 @@ class History(db.Model):
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
     status_enabled = db.Column(db.Boolean(), default = True)
+    submitted_by_id = db.Column(db.Integer(), db.ForeignKey('pegawai.npk'))
+    record_id = db.Column(db.String())
 
-    def __init__(self,activity,pegawai_id,posisi_id,request_id,response,started_at,completed_at):
+
+    def __init__(self,activity,pegawai_id,posisi_id,request_id,response,started_at,completed_at,submitted_by_id,record_id):
         self.activity = activity
         self.pegawai_id = pegawai_id
         self.posisi_id = posisi_id
@@ -336,6 +339,8 @@ class History(db.Model):
         self.response = response
         self.started_at = started_at
         self.completed_at = completed_at
+        self.submitted_by_id = submitted_by_id
+        self.record_id = record_id
 
     def __repr__(self):
         return '<history id {}>'.format(self.history_id)
@@ -343,6 +348,9 @@ class History(db.Model):
     def serialise(self):        
         pegawai = Pegawai.query.filter_by(npk = self.pegawai_id).first()
         posisi = Posisi.query.filter_by(posisi_id = self.posisi_id).first()
+        pegawaiSubmit = Pegawai.query.filter_by(npk = self.submitted_by_id).first()
+        requestDetail = Request.query.filter_by(request_id = self.request_id).first()
+
         return {
             'history_id' : self.history_id,
             'history_name' : self.history_name,
@@ -355,7 +363,11 @@ class History(db.Model):
             'response' : self.response,
             'started_at' : self.started_at,
             'completed_at' : self.completed_at,
-            'status_enabled' : self.status_enabled
+            'status_enabled' : self.status_enabled,
+            'submitted_by_id' : pegawaiSubmit.npk,
+            'submitted_by_name' : pegawaiSubmit.nama,
+            'record_id' : self.record_id,
+            'comment' : requestDetail.comment
         }
         
 

@@ -53,10 +53,7 @@ def addRole():
 #################################################################################################
 # GET ROLE
 #################################################################################################
-
-
 @router.route('/master/role/getAll', methods=['GET'])
-@verifyLogin
 
 def getAllRole():
     response = {
@@ -193,8 +190,6 @@ def addPosisi():
 # GET POSISI
 #################################################################################################
 @router.route('/master/posisi/getAll', methods=['GET'])
-@verifyLogin
-
 def getAllPosisi():
     response = {
         "error" : True,
