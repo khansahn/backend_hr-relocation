@@ -278,8 +278,6 @@ def submitTaskNF(taskIdNF, body,tokenNFLogin, action):
     # userTokenNF = os.getenv("NF_user_token")
     userTokenNF = tokenNFLogin
 
-    print("REVISE NF", dataSubmitTaskNF)
-
     submitTaskNF = requests.post(urlSubmitTaskNF+taskIdNF+'/submit', data = json.dumps(dataSubmitTaskNF), headers = {"Content-Type": "application/json", "Authorization": "Bearer %s" %userTokenNF})
 
     return json.loads(submitTaskNF.text)
@@ -316,8 +314,6 @@ def submitTaskDB(body):
             role_id_tujuan = body["data_pegawai_requested"]["role_id_tujuan"])
         db.session.add(requestDB)
         db.session.commit()
-
-        print("REVISE",requestDB.serialise())
 
         historyDB = History(
             activity = body["action"],
@@ -367,11 +363,6 @@ def submitTask():
             "responNF" : submittedTask
         }            
 
-        # STAGE VIEW NYA GAJADI DICEK DI SINI TP MISAH API 
-        # recordStageView = getRecordStageView(submittedTaskDB.record_id,tokenNFLogin)
-        # print("CEK 1",recordStageView['data'][-1]['type'])
-        # isRecordComplete = isRecordCompleted(recordStageView,body["data_pegawai_requested"], tokenNFLogin)
-
         response["message"] =  "Task submitted."
         response["error"] = False
         response["data"] = respTEST
@@ -382,36 +373,7 @@ def submitTask():
 
     return jsonify(response)
 
-  
-#####################################################################################################
-# CEK STAGE VIEW
-#####################################################################################################  
-@router.route('/record/stageview', methods = ['POST'])
-# @verifyLogin
-def getRecordStageView():
-    body = request.json 
-    npkPegawaiLogin = body["user_login"]["npk"]
-    pegawaiLogin = db.session.query(Pegawai).filter_by(npk = npkPegawaiLogin).first()
-    tokenNFLogin = pegawaiLogin.token_nf
 
-    pegawaiRequested = body["data_pegawai_requested"]
-
-    urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
-    # userTokenNF = os.getenv("NF_user_token")
-    # userTokenNF = tokenNFLogin
-    userTokenNF = pegawaiLogin.token_nf
-
-    recordStageView = requests.get(urlSubmitRecordNF + body["record_id"] +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
-
-    # return json.loads(recordStageView.text)
-    responseStageViewNF = json.loads(recordStageView.text)
-    print("HALO", pegawaiRequested)
-
-    isRecordComplete = isRecordCompleted(responseStageViewNF,pegawaiRequested,tokenNFLogin)
-
-    db.session.close()
-
-    return isRecordComplete
 
 
 
@@ -451,8 +413,120 @@ def submitTaskRevise():
 
 
 
+
+######################## STAGE VIEW ###############################
+
+
+def isRecordCompleted(recordStageView, pegawaiRequested, tokenNFLogin):
+    response = {
+        "message" : "",
+        "relocated" : False
+    }
+
+    if (recordStageView['data'][-1]['type'] == "record:state:completed"):
+        relocatePegawaiWhenRecordIsCompleted(pegawaiRequested)
+        response["message"] = "record completed, pegawai relocated"
+        response["relocated"] = True
+    else :
+        response["message"] = "process is still on going"
+
+    return jsonify(response)
+
+
+###################### FUNC RELOCATE PEGAWAI #################################
+
+def relocatePegawaiWhenRecordIsCompleted(pegawaiRequested):
+    try:
+        Pegawai.query.filter_by(npk = pegawaiRequested['npk']).update(dict(posisi_id=pegawaiRequested['posisi_id_tujuan']))
+        message = "pegawai realocated"
+
+        db.session.commit()
+    
+    except Exception as e:
+        return str(e)
+    finally:
+        db.session.close()
+
+    return message
+
+  
+#####################################################################################################
+# CEK STAGE VIEW AND RELOCATE
+#####################################################################################################  
+@router.route('/stageview/relocate', methods = ['POST'])
+# @verifyLogin
+def getRecordStageView():
+    body = request.json 
+    npkPegawaiLogin = body["user_login"]["npk"]
+    pegawaiLogin = db.session.query(Pegawai).filter_by(npk = npkPegawaiLogin).first()
+    tokenNFLogin = pegawaiLogin.token_nf
+
+    pegawaiRequested = body["data_pegawai_requested"]
+
+    urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
+    # userTokenNF = os.getenv("NF_user_token")
+    # userTokenNF = tokenNFLogin
+    userTokenNF = pegawaiLogin.token_nf
+
+    recordStageView = requests.get(urlSubmitRecordNF + body["record_id"] +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
+
+    # return json.loads(recordStageView.text)
+    responseStageViewNF = json.loads(recordStageView.text)
+
+    isRecordComplete = isRecordCompleted(responseStageViewNF,pegawaiRequested,tokenNFLogin)
+
+    db.session.close()
+
+    return isRecordComplete
+
+
+
+  
+#####################################################################################################
+# GET STAGE VIEW PER RECORD ID (BUAT COMMENT HISTORY)
+#####################################################################################################  
+@router.route('/stageview/getPerRecordId', methods = ['POST'])
+# @verifyLogin
+def getRecordStageViewPerRecordId():
+    response = {
+        "error" : True,
+        "message" : "",
+        "data" : {}
+    }
+
+    try :
+        body = request.json 
+        npkPegawaiLogin = body["user_login"]["npk"]
+        pegawaiLogin = db.session.query(Pegawai).filter_by(npk = npkPegawaiLogin).first()
+
+        urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
+        userTokenNF = pegawaiLogin.token_nf
+
+        recordStageView = requests.get(urlSubmitRecordNF + body["record_id"] +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
+
+        responseStageViewNF = json.loads(recordStageView.text)
+        dataResponseStageViewNF = responseStageViewNF["data"]
+        dataTanpaTypeTaskAssigned = []
+        for i in range(len(dataResponseStageViewNF)):
+            if (dataResponseStageViewNF[i]["type"] != "task:assigned"):
+                dataTanpaTypeTaskAssigned.append(dataResponseStageViewNF[i])
+
+        response["message"] = "Stage(s) found : "+ str(len(dataTanpaTypeTaskAssigned))
+        response["error"] = False
+        response["data"] = dataTanpaTypeTaskAssigned
+
+    except Exception as e:
+        response["message"] = str(e)
+    finally:
+        db.session.close()
+
+    return jsonify(response)
+
+
+
+
 #################################################################################################
-# GET ALL HISTORY
+# GET ALL HISTORY FROM DB
 #################################################################################################
 @router.route('/history/getAll', methods=['GET'])
 @verifyLogin
@@ -475,78 +549,37 @@ def getAllHistory():
         response["message"] = str(e)
     finally:
         db.session.close()
-        print("tes ok")
     
     return jsonify(response)
 
 
-######################## STAGE VIEW ###############################
-
-# def getRecordStageViewAdmin(record_id):
-#     print("masuk record stage view admin")
-#     urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
-#     userTokenNF = os.getenv("NF_user_token")
-#     # userTokenNF = tokenNFLogin
-
-#     recordStageView = requests.get(urlSubmitRecordNF + record_id +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
-#     print("mau keluar record stage view admin")
-#     return json.loads(recordStageView.text)
 
 
-# def getRecordStageView(record_id, tokenNFLogin):
-#     urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
-#     # userTokenNF = os.getenv("NF_user_token")
-#     userTokenNF = tokenNFLogin
-
-#     recordStageView = requests.get(urlSubmitRecordNF + record_id +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
-
-#     return json.loads(recordStageView.text)
-
-def isRecordCompleted(recordStageView, pegawaiRequested, tokenNFLogin):
-    # print(recordStageView, pegawaiRequested)
-    print(recordStageView['data'][-1]['type'])
-    print(pegawaiRequested['npk'])
-
-    print("func isrecordcomplete called")
+#################################################################################################
+# GET ALL HISTORY DISTINCTIVE RECORD ID FROM DB
+#################################################################################################
+@router.route('/history/getAllDistinctRecordId', methods=['GET'])
+# @verifyLogin
+def getAllHistoryDistinctRecordId():
     response = {
+        "error" : True,
         "message" : "",
-        "relocated" : False
+        "data" : {}
     }
-
-    #double check
-    # doubleCheckRecordStageView = getRecordStageView(recordStageView['data'][-1]['record_id'], tokenNFLogin)
-    # print("HASIL DOUBLE CHECK", doubleCheckRecordStageView['data'][-1]['type'] )
-    # tripleCheckRecordStageView = getRecordStageView(recordStageView['data'][-1]['record_id'], tokenNFLogin)
-
-    # print("HASIL TRIPLE CHECK", tripleCheckRecordStageView['data'][-1]['type'] )
-
-    if (recordStageView['data'][-1]['type'] == "record:state:completed"):
-        print("MASUK")
-        relocatePegawaiWhenRecordIsCompleted(pegawaiRequested)
-        response["message"] = "record completed, pegawai relocated"
-        response["relocated"] = True
-        print("relocated")
-    else :
-        response["message"] = "process is still on going"
-
-    return jsonify(response)
-
-
-###################### FUNC RELOCATE PEGAWAI #################################
-
-def relocatePegawaiWhenRecordIsCompleted(pegawaiRequested):
-    print(pegawaiRequested['npk'])
-    print("func relocatepegawaiwhenrecordiscompleted called")
-
+            
     try:
-        Pegawai.query.filter_by(npk = pegawaiRequested['npk']).update(dict(posisi_id=pegawaiRequested['posisi_id_tujuan']))
-        message = "pegawai realocated"
-
-        db.session.commit()
-    
+        historyEnabled = db.session.query(History).filter_by(status_enabled = True).distinct(History.record_id).order_by(History.record_id,History.started_at).all()
+        
+        data = ([e.serialise() for e in historyEnabled])
+        historyEnabledCount  = len(data)
+        response["message"] = "History(s) found : " + str(historyEnabledCount)
+        response["error"] = False
+        response["data"] = data
     except Exception as e:
-        return str(e)
+        response["message"] = str(e)
     finally:
         db.session.close()
+    
+    return jsonify(response)
 
-    return message
+
