@@ -177,7 +177,7 @@ def getTaskFromNF(tokenNFPegawai):
     # userTokenNF = os.getenv("NF_user_token")
     userTokenNF = tokenNFPegawai
 
-    listTaskNF = requests.get(urlGetTaskFromNF+urlGetTaskFilterFromNF, headers = {"Content-Type": "application/json", "Authorization": "Bearer %s" %userTokenNF})
+    listTaskNF = requests.get(urlGetTaskFromNF + urlGetTaskFilterFromNF, headers = {"Content-Type": "application/json", "Authorization": "Bearer %s" %userTokenNF})
 
     return json.loads(listTaskNF.text)
 
@@ -186,7 +186,7 @@ def getTaskFromNF(tokenNFPegawai):
 # GET REQUEST PER ID LOGIN (GET TASK) NANTI KEMBANGIN JADI PER USER TOKENNF STLH DAPET NPK
 #################################################################################################
 @router.route('/task/getAll/<npk>', methods=['GET'])
-@verifyLogin
+# @verifyLogin
 
 def getAllTasksById(npk):
     response = {
@@ -278,54 +278,62 @@ def submitTaskNF(taskIdNF, body,tokenNFLogin, action):
     # userTokenNF = os.getenv("NF_user_token")
     userTokenNF = tokenNFLogin
 
+    print("REVISE NF", dataSubmitTaskNF)
+
     submitTaskNF = requests.post(urlSubmitTaskNF+taskIdNF+'/submit', data = json.dumps(dataSubmitTaskNF), headers = {"Content-Type": "application/json", "Authorization": "Bearer %s" %userTokenNF})
 
     return json.loads(submitTaskNF.text)
 
 def submitTaskDB(body):
-    hrDeptAsal = queryNyariPegawaiDiPosisiRoleTerkait(body["data_pegawai_requested"]["posisi_id_awal"],"HRD")
-    manDeptTujuan = queryNyariPegawaiDiPosisiRoleTerkait(body["data_pegawai_requested"]["posisi_id_tujuan"],"Manajer")
-    hrDeptTujuan = queryNyariPegawaiDiPosisiRoleTerkait(body["data_pegawai_requested"]["posisi_id_tujuan"],"HRD")
-    pegawaiRequested = db.session.query(Pegawai).filter_by(npk = body["data_pegawai_requested"]["npk"]).first()
-    pegawaiRequester = db.session.query(Pegawai).filter_by(npk = body["data_pegawai_requester"]["npk"]).first()
+    try : 
+        hrDeptAsal = queryNyariPegawaiDiPosisiRoleTerkait(body["data_pegawai_requested"]["posisi_id_awal"],"HRD")
+        manDeptTujuan = queryNyariPegawaiDiPosisiRoleTerkait(body["data_pegawai_requested"]["posisi_id_tujuan"],"Manajer")
+        hrDeptTujuan = queryNyariPegawaiDiPosisiRoleTerkait(body["data_pegawai_requested"]["posisi_id_tujuan"],"HRD")
+        pegawaiRequested = db.session.query(Pegawai).filter_by(npk = body["data_pegawai_requested"]["npk"]).first()
+        pegawaiRequester = db.session.query(Pegawai).filter_by(npk = body["data_pegawai_requester"]["npk"]).first()
 
-    requestDB = Request(
-        process_id = body["process_id"],
-        record_id = body["record_id"],
-        comment = body["comment"],
-        requester_id = pegawaiRequester.npk,
-        requester_email = pegawaiRequester.npk,
-        hrdeptasal_email = hrDeptAsal.email,
-        hrperusahaan_email = "snabilakhansa@gmail.com",
-        mandepttujuan_email = manDeptTujuan.email,
-        seniormanperusahaan_email = "akmaluddinfadhilah@gmail.com",
-        hrdepttujuan_email = hrDeptTujuan.email,
-        behalf_name = body["data_pegawai_requester"]["behalf_name"],
-        behalf_posisi = body["data_pegawai_requester"]["behalf_posisi"],
-        action = body["action"],
-        keputusan_id = body["keputusan_id"],
-        effective_date = body["effective_date"],
-        requested_id = pegawaiRequested.npk,
-        requested_email = pegawaiRequested.email,
-        posisi_id_awal = body["data_pegawai_requested"]["posisi_id_awal"],
-        posisi_id_tujuan = body["data_pegawai_requested"]["posisi_id_tujuan"],
-        role_id_awal = body["data_pegawai_requested"]["role_id_awal"],
-        role_id_tujuan = body["data_pegawai_requested"]["role_id_tujuan"])
-    db.session.add(requestDB)
-    db.session.commit()
+        requestDB = Request(
+            process_id = body["process_id"],
+            record_id = body["record_id"],
+            comment = body["comment"],
+            requester_id = pegawaiRequester.npk,
+            requester_email = pegawaiRequester.npk,
+            hrdeptasal_email = hrDeptAsal.email,
+            hrperusahaan_email = "snabilakhansa@gmail.com",
+            mandepttujuan_email = manDeptTujuan.email,
+            seniormanperusahaan_email = "akmaluddinfadhilah@gmail.com",
+            hrdepttujuan_email = hrDeptTujuan.email,
+            behalf_name = body["data_pegawai_requester"]["behalf_name"],
+            behalf_posisi = body["data_pegawai_requester"]["behalf_posisi"],
+            action = body["action"],
+            keputusan_id = body["keputusan_id"],
+            effective_date = body["effective_date"],
+            requested_id = pegawaiRequested.npk,
+            requested_email = pegawaiRequested.email,
+            posisi_id_awal = body["data_pegawai_requested"]["posisi_id_awal"],
+            posisi_id_tujuan = body["data_pegawai_requested"]["posisi_id_tujuan"],
+            role_id_awal = body["data_pegawai_requested"]["role_id_awal"],
+            role_id_tujuan = body["data_pegawai_requested"]["role_id_tujuan"])
+        db.session.add(requestDB)
+        db.session.commit()
 
-    historyDB = History(
-        activity = body["action"],
-        pegawai_id = body["data_pegawai_requested"]["npk"],
-        posisi_id = body["data_pegawai_requested"]["posisi_id_awal"],
-        request_id = requestDB.request_id,
-        response = body["action"],
-        started_at = requestDB.created_at,
-        completed_at = None,
-        submitted_by_id = body["user_login"]["npk"],
-        record_id = requestDB.record_id)
-    db.session.add(historyDB)
-    db.session.commit()
+        print("REVISE",requestDB.serialise())
+
+        historyDB = History(
+            activity = body["action"],
+            pegawai_id = body["data_pegawai_requested"]["npk"],
+            posisi_id = body["data_pegawai_requested"]["posisi_id_awal"],
+            request_id = requestDB.request_id,
+            response = body["action"],
+            started_at = requestDB.created_at,
+            completed_at = None,
+            submitted_by_id = body["user_login"]["npk"],
+            record_id = requestDB.record_id)
+        db.session.add(historyDB)
+        db.session.commit()
+    except Exception as e:
+        return str(e)
+    
 
     return requestDB
 
@@ -359,25 +367,12 @@ def submitTask():
             "responNF" : submittedTask
         }            
 
-        recordStageView = getRecordStageView(submittedTaskDB.record_id,tokenNFLogin)
-        print("CEK 1",recordStageView['data'][-1]['type'])
-        isRecordComplete = isRecordCompleted(recordStageView,body["data_pegawai_requested"], tokenNFLogin)
+        # STAGE VIEW NYA GAJADI DICEK DI SINI TP MISAH API 
+        # recordStageView = getRecordStageView(submittedTaskDB.record_id,tokenNFLogin)
+        # print("CEK 1",recordStageView['data'][-1]['type'])
+        # isRecordComplete = isRecordCompleted(recordStageView,body["data_pegawai_requested"], tokenNFLogin)
 
-        recordStageViewAdmin = getRecordStageViewAdmin(submittedTaskDB.record_id)
-        print("CEK 2",recordStageViewAdmin['data'][-1]['type'])
-        isRecordCompleteAdmin = isRecordCompleted(recordStageViewAdmin,body["data_pegawai_requested"], tokenNFLogin)
-
-        
-        recordStageViewAdmin2 = getRecordStageViewAdmin(submittedTaskDB.record_id)
-        print("CEK 3",recordStageViewAdmin2['data'][-1]['type'])
-        isRecordCompleteAdmin2 = isRecordCompleted(recordStageViewAdmin2,body["data_pegawai_requested"], tokenNFLogin)
-
-        additionalMessage = ""
-        if (isRecordCompleteAdmin2["relocated"] == True) :
-            relocatePegawaiWhenRecordIsCompleted(body["data_pegawai_requested"])
-            additionalMessage = "Pegawai is relocated"
-
-        response["message"] =  "Task submitted.   " + additionalMessage
+        response["message"] =  "Task submitted."
         response["error"] = False
         response["data"] = respTEST
     except Exception as e:
@@ -387,7 +382,36 @@ def submitTask():
 
     return jsonify(response)
 
+  
+#####################################################################################################
+# CEK STAGE VIEW
+#####################################################################################################  
+@router.route('/record/stageview', methods = ['POST'])
+# @verifyLogin
+def getRecordStageView():
+    body = request.json 
+    npkPegawaiLogin = body["user_login"]["npk"]
+    pegawaiLogin = db.session.query(Pegawai).filter_by(npk = npkPegawaiLogin).first()
+    tokenNFLogin = pegawaiLogin.token_nf
 
+    pegawaiRequested = body["data_pegawai_requested"]
+
+    urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
+    # userTokenNF = os.getenv("NF_user_token")
+    # userTokenNF = tokenNFLogin
+    userTokenNF = pegawaiLogin.token_nf
+
+    recordStageView = requests.get(urlSubmitRecordNF + body["record_id"] +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
+
+    # return json.loads(recordStageView.text)
+    responseStageViewNF = json.loads(recordStageView.text)
+    print("HALO", pegawaiRequested)
+
+    isRecordComplete = isRecordCompleted(responseStageViewNF,pegawaiRequested,tokenNFLogin)
+
+    db.session.close()
+
+    return isRecordComplete
 
 
 
@@ -456,25 +480,27 @@ def getAllHistory():
     return jsonify(response)
 
 
-def getRecordStageViewAdmin(record_id):
-    print("masuk record stage view admin")
-    urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
-    userTokenNF = os.getenv("NF_user_token")
-    # userTokenNF = tokenNFLogin
+######################## STAGE VIEW ###############################
 
-    recordStageView = requests.get(urlSubmitRecordNF + record_id +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
-    print("mau keluar record stage view admin")
-    return json.loads(recordStageView.text)
+# def getRecordStageViewAdmin(record_id):
+#     print("masuk record stage view admin")
+#     urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
+#     userTokenNF = os.getenv("NF_user_token")
+#     # userTokenNF = tokenNFLogin
+
+#     recordStageView = requests.get(urlSubmitRecordNF + record_id +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
+#     print("mau keluar record stage view admin")
+#     return json.loads(recordStageView.text)
 
 
-def getRecordStageView(record_id, tokenNFLogin):
-    urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
-    # userTokenNF = os.getenv("NF_user_token")
-    userTokenNF = tokenNFLogin
+# def getRecordStageView(record_id, tokenNFLogin):
+#     urlSubmitRecordNF = os.getenv("NEXTFLOW_SUBMITRECORD_URL")
+#     # userTokenNF = os.getenv("NF_user_token")
+#     userTokenNF = tokenNFLogin
 
-    recordStageView = requests.get(urlSubmitRecordNF + record_id +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
+#     recordStageView = requests.get(urlSubmitRecordNF + record_id +'/stageview', headers = {"Authorization": "Bearer %s" %userTokenNF})
 
-    return json.loads(recordStageView.text)
+#     return json.loads(recordStageView.text)
 
 def isRecordCompleted(recordStageView, pegawaiRequested, tokenNFLogin):
     # print(recordStageView, pegawaiRequested)
@@ -496,7 +522,7 @@ def isRecordCompleted(recordStageView, pegawaiRequested, tokenNFLogin):
 
     if (recordStageView['data'][-1]['type'] == "record:state:completed"):
         print("MASUK")
-        # relocatePegawaiWhenRecordIsCompleted(pegawaiRequested)
+        relocatePegawaiWhenRecordIsCompleted(pegawaiRequested)
         response["message"] = "record completed, pegawai relocated"
         response["relocated"] = True
         print("relocated")
@@ -505,6 +531,8 @@ def isRecordCompleted(recordStageView, pegawaiRequested, tokenNFLogin):
 
     return jsonify(response)
 
+
+###################### FUNC RELOCATE PEGAWAI #################################
 
 def relocatePegawaiWhenRecordIsCompleted(pegawaiRequested):
     print(pegawaiRequested['npk'])

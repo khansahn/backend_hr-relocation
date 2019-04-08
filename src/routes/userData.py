@@ -13,7 +13,7 @@ from . import router
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import exists
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 
 
@@ -198,7 +198,8 @@ def getAllUsers():
     }
 
     try:
-        pegawaiEnabled = Pegawai.query.filter_by(status_enabled = True).order_by(Pegawai.nama).all()
+        # dan posisinya bukan manajer atau HR
+        pegawaiEnabled = Pegawai.query.filter(Pegawai.status_enabled == True, Pegawai.role_id.between(14,16)).order_by(Pegawai.nama).all()
 
         data = ([e.returnToUser() for e in pegawaiEnabled])
         pegawaiEnabledCount  = len(data)
